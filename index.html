@@ -12,11 +12,11 @@
   <script type="text/javascript" src="lib/jquery-mobile-1.2.0/jquery.mobile.min.js"></script>
   <!--link rel="stylesheet" href="lib/BlackBerry-JQM-all.css" />
   <script type="text/javascript" src="lib/BlackBerry-JQM-all.js"></script-->
-
+	<script src="lib/lawnchair-0.6.1.min.js"></script>
   <style>
 body {
   font: 14px/20px 'Helvetica Neue Light', HelveticaNeue-Light, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  max-width: 820px;
+  /*max-width: 820px;*/
   margin: 0 auto;
   padding: 10px;
 }
@@ -33,6 +33,9 @@ pre, textarea {
   padding: 10px;
   width: 100%;
 }
+.viewer {
+	width:90% !important;
+}
 #code {
 	width: 100%;
 }
@@ -47,19 +50,20 @@ canvas { cursor: move; }
 </head>
 <body>
 	
+
 <div data-role="page" id="pageList">
   <div data-role="content">
-  	List
+  	<ul data-role="listview" id="files"></ul>	
   </div>
   <div data-role="footer" data-position="fixed">
 	  <div data-role="navbar">
 			<ul>
-		      <li><a href="#pageNew">Add</a></li>
+		      <li><a class="addbtn" href="#pageEditor">Add</a></li>
+		      <li><a href="#help">Help</a></li>
 			</ul>
 	  </div>
   </div>
 </div>
-
 <div data-role="page" id="pageViewer">
 	<div data-role="content">
 		<div id="viewer"></div>
@@ -67,7 +71,8 @@ canvas { cursor: move; }
     <div data-role="footer" data-position="fixed">
 		<div data-role="navbar">
 			<ul>
-			  <li class="active"><a href="#pageViewer">Preview</a></li>
+			  <li><a href="#pageList">&lt;</a></li>
+			  <li><a href="#pageViewer">Preview</a></li>
 			  <li><a href="#pageEditor">Edit</a></li>
 			  <li><a href="#pageExport">Export</a></li>
 			</ul>
@@ -78,31 +83,22 @@ canvas { cursor: move; }
 
 <div data-role="page" id="pageEditor">
 	<div data-role="content">
-		<textarea id="filename">myfile.jscad</textarea>
-		<textarea id="code">
-		function main()
-		{
-		  var resolution = 24; // increase to get smoother corners (will get slow!)
-		  
-		  var cube1 = CSG.roundedCube({center: [0,0,0], radius: [10,10,10], roundradius: 2, resolution: resolution});
-		  var sphere1 = CSG.sphere({center: [5, 5, 5], radius: 10, resolution: resolution });
-		  var sphere2 = sphere1.translate([12, 5, 0]);
-		  var sphere3 = CSG.sphere({center: [20, 0, 0], radius: 30, resolution: resolution });
-		  
-		  var result = cube1;
-		  result = result.union(sphere1);
-		  result = result.subtract(sphere2);
-		  result = result.intersect(sphere3);
-		  return result;
-		}
-		</textarea><br>
-		<input type="submit" value="Save SCAD file" onclick="updateSolid(); return false;">
+		<form action="" data-ajax="false">
+        <label for="filename">Filename:</label>
+        <input type="text" name="filename" id="filename" value="" />
+        <label for="descfield">Description:</label>
+        <textarea name="code" id="code"></textarea>
+        </form>
+        
+		<!--input class="savebtn" type="submit" value="Save SCAD file"-->
     </div>
     <div data-role="footer" data-position="fixed">
 		<div data-role="navbar">
 			<ul>
+			  <li><a href="#pageList">&lt;</a></li>
 			  <li><a href="#pageViewer">Preview</a></li>
-			  <li class="active"><a href="#pageEditor">Edit</a></li>
+			  <li><a href="#pageEditor">Edit</a></li>
+			  <li class="savebtn">Save</li>
 			  <li><a href="#pageExport">Export</a></li>
 			</ul>
 		</div>
@@ -116,9 +112,10 @@ canvas { cursor: move; }
 	<div data-role="footer" data-position="fixed">
 		<div data-role="navbar">
 			<ul>
+			  <li><a href="#pageList">&lt;</a></li>
 			  <li><a href="#pageViewer">Preview</a></li>
 			  <li><a href="#pageEditor">Edit</a></li>
-			  <li class="active"><a href="#pageExport">Export</a></li>
+			  <li><a href="#pageExport">Export</a></li>
 			</ul>
 		</div>
 	</div>
@@ -128,7 +125,10 @@ canvas { cursor: move; }
 
 <script type="text/javascript">
 	var gProcessor=null;
-	
+	 var store = new Lawnchair({name:'scadfiles'},function(store){
+    	loadFiles(store);
+    });
+    
 	// Show all exceptions to the user:
 	OpenJsCad.AlertUserOfUncaughtExceptions();
 	function handleTouch(event)
@@ -163,9 +163,9 @@ canvas { cursor: move; }
 	function onload()
 	{
 	  // Ensure touch support
-	  jQuery.fn.addTouch = function(){
+	  $.fn.addTouch = function(){
 	    this.each(function(i,el){
-	      jQuery(el).bind('touchstart touchmove touchend touchcancel',function(){
+	      $(el).bind('touchstart touchmove touchend touchcancel',function(){
 	        handleTouch(event);
 	      });
 	    });
@@ -174,7 +174,50 @@ canvas { cursor: move; }
 	  gProcessor = new OpenJsCad.Processor(document.getElementById("viewer"));
 	  updateSolid();
 	}
-	
+	  
+  $(".savebtn").click(function () {
+    store.save({filename:$("#filename").val(), code: $("#code").val()});
+    loadFiles(store);
+    updateSolid
+  }); 
+  
+  $(".addbtn").click(function(){
+  	console.log("add");
+	  $("#filename").val("");
+	  $("#code").val("function main()\n{\nvar resolution = 24; // increase to get smoother corners (will get slow!)\nvar cube1 = CSG.roundedCube({center: [0,0,0], radius: [10,10,10], roundradius: 2, resolution: resolution});\nvar sphere1 = CSG.sphere({center: [5, 5, 5], radius: 10, resolution: resolution });\nvar sphere2 = sphere1.translate([12, 5, 0]);\nvar sphere3 = CSG.sphere({center: [20, 0, 0], radius: 30, resolution: resolution });\nvar result = cube1;\nresult = result.union(sphere1);\nresult = result.subtract(sphere2);\nresult = result.intersect(sphere3);\nreturn result;}");
+	  updateSolid();
+  });
+  
+  function loadFiles(store){
+	 $("#files").empty();
+     store.all(function(obj) {
+     	
+    	 obj.forEach(function(d) {
+    	 	console.log("load ", d)
+    		$("#files").append("<li id='" + d.key 
+    				+ "'><!--button style='width:60px !important' class='ui-li-aside deletebtn'>delete</button--><h3 class='ui-li-heading'><a class='scadfile' href='#pageEditor'>" 
+    					+ d.filename + "</a></h3></li>");
+    	 });
+     });
+     
+     $(".deletebtn").click(function () {
+   	  	var id = $(this).parent("li").attr("id");
+   	    store.remove(id,function(){
+   	    	$(this).parent("li").remove();
+   	    	loadFiles(store);
+   	    });
+     });
+     $(".scadfile").click(function () {
+     	var id = $(this).parent("h3").parent("li").attr("id");
+     	console.log("open",id)
+     	store.get(id, function(d){
+     		$("#filename").val(d.filename);
+	  		$("#code").val(d.code);
+	  		updateSolid();
+     	});
+     });
+   }     	
+    	
 	function updateSolid()
 	{
 	  gProcessor.setJsCad(document.getElementById('code').value);
